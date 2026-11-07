@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบตรวจสอบสถานะ IP อัตโนมัติ (8 โรงเรียน)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f0f4f8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 18px 14px 65px 14px;
+            overflow-x: hidden;
+        }
+        
+        .outer-title {
+            color: #22c55e;
+            font-size: 28px; 
+            font-weight: 800; 
+            margin-bottom: 18px; 
+            text-align: center;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        }
+
+        /* ตารางจัดวาง 8 กรอบแบบกระชับ พอดีหน้าจอ */
+        .grid-wrapper {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            max-width: 1240px;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .grid-wrapper {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 560px) {
+            .grid-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .container {
+            background: #fff;
+            padding: 14px 12px;
+            border-radius: 14px;
+            box-shadow: 0 6px 18px rgba(0,0,0,.07);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .header {
+            margin-bottom: 8px;
+        }
+        .header h2 {
+            margin: 0;
+            color: #1e3a8a;
+            font-size: 17px;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result-container-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 30px;
+            margin-bottom: 10px;
+        }
+        .result-box {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .idle {
+            background-color: #f8fafc;
+            color: #94a3b8;
+            border: 1.5px dashed #cbd5e1;
+        }
+        .loading { 
+            background-color: #f1f5f9; 
+            color: #475569; 
+            border: 1.5px dashed #94a3b8; 
+        }
+        .online { 
+            background-color: #f0fdf4; 
+            color: #166534; 
+            border: 1.5px solid #22c55e; 
+            box-shadow: 0 2px 6px rgba(34, 197, 94, 0.15);
+            cursor: pointer;
+        }
+        .online:hover {
+            background-color: #dcfce7;
+            transform: translateY(-1px);
+        }
+        .offline { 
+            background-color: #fef2f2; 
+            color: #991b1b; 
+            border: 1.5px solid #ef4444; 
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.12);
+        }
+
+        .input-row-group {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 10px;
+            width: 100%;
+            align-items: center;
+        }
+
+        input[type=text] {
+            padding: 8px 6px;
+            color: #333;
+            font-size: 12px;
+            font-weight: 500;
+            outline: none;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-bottom: 2.5px solid #cbd5e1;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: .2s;
+            min-width: 0;
+        }
+        
+        .school-name-input { flex: 1.2; } 
+        .ip-input { flex: 1; text-align: center; } 
+        .port-input { width: 46px; flex-shrink: 0; text-align: center; } 
+
+        input[type=text]:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+            transform: translateY(-1px);
+        }
+        input[type=text]:focus {
+            background: #fff;
+            border-color: #1e3a8a;
+            border-bottom-width: 1px;
+            transform: translateY(1px);
+            cursor: text;
+        }
+        
+        button {
+            background: #1e3a8a;
+            color: #fff;
+            border: none;
+            border-bottom: 3px solid #172554;
+            padding: 8px 10px;
+            font-size: 13px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+            transition: .1s;
+        }
+        button:hover {
+            background: #1d4ed8;
+            border-bottom-color: #1e40af;
+            transform: translateY(-1px);
+        }
+        button:active {
+            border-bottom-width: 1px;
+            transform: translateY(2px);
+        }
+        button:disabled {
+            background: #94a3b8;
+            border-bottom-color: #64748b;
+            cursor: not-allowed;
+        }
+        
+        .info-box-corner {
+            position: fixed;
+            bottom: 12px;
+            right: 16px;
+            text-align: right;
+            font-size: 12px;
+            color: #64748b;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 6px 12px;
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div class="outer-title">ระบบตรวจสอบสถานะ IP เครือข่าย</div>
+
+<div class="grid-wrapper" id="cardsGrid"></div>
+
+<div class="info-box-corner">
+    <div id="timer">🔄 ระบบกำลังเริ่มตรวจสอบอัตโนมัติ...</div>
+    <div id="timestamp" style="font-size: 11px; color: #94a3b8; margin-top: 2px;"></div>
+</div>
+
+<script>
+const TOTAL_CARDS = 8;
+let refInt = null;
+let countInt = null;
+let timeLeft = 60;
+
+const defaultConfigs = [
+    { name: "โรงเรียนป่าซาง", ip: "61.7.232.102", port: "8080" },
+    { name: "โรงเรียนที่ 2", ip: "", port: "8080" },
+    { name: "โรงเรียนที่ 3", ip: "", port: "8080" },
+    { name: "โรงเรียนที่ 4", ip: "", port: "8080" },
+    { name: "โรงเรียนที่ 5", ip: "", port: "8080" },
+    { name: "โรงเรียนที่ 6", ip: "", port: "8080" },
+    { name: "โรงเรียนที่ 7", ip: "", port: "8080" },
+    { name: "โรงเรียนที่ 8", ip: "", port: "8080" }
+];
+
+function buildCards() {
+    const grid = document.getElementById('cardsGrid');
+    grid.innerHTML = '';
+
+    for (let i = 0; i < TOTAL_CARDS; i++) {
+        let savedName = localStorage.getItem(`s_name_${i}`) || (i === 0 ? localStorage.getItem('s_name') : null) || defaultConfigs[i].name;
+        let savedIp = localStorage.getItem(`s_ip_${i}`) || (i === 0 ? localStorage.getItem('s_ip') : null) || defaultConfigs[i].ip;
+        let savedPort = localStorage.getItem(`s_port_${i}`) || (i === 0 ? localStorage.getItem('s_port') : null) || defaultConfigs[i].port;
+
+        const card = document.createElement('div');
+        card.className = 'container';
+        card.innerHTML = `
+            <div class="header">
+                <h2 id="schoolNameDisplay-${i}">${savedName || "ระบบตรวจสอบ IP"}</h2>
+            </div>
+            
+            <div class="result-container-box" id="result-container-${i}">
+                <div class="result-box idle">⚪ รอระบุข้อมูล IP</div>
+            </div>
+            
+            <div>
+                <div class="input-row-group">
+                    <input type="text" id="schoolNameInput-${i}" class="school-name-input" value="${savedName}" placeholder="ชื่อโรงเรียน" oninput="syncData(${i})">
+                    <input type="text" id="ip-${i}" class="ip-input" value="${savedIp}" placeholder="IP Address">
+                    <input type="text" id="port-${i}" class="port-input" value="${savedPort}" placeholder="Port">
+                </div>
+                
+                <button id="checkBtn-${i}" onclick="saveAndCheck(${i})">บันทึกข้อมูลและตรวจสอบ</button>
+            </div>
+        `;
+        grid.appendChild(card);
+    }
+}
+
+function syncData(index) {
+    let name = document.getElementById(`schoolNameInput-${index}`).value.trim();
+    document.getElementById(`schoolNameDisplay-${index}`).innerText = name || "ระบบตรวจสอบ IP";
+}
+
+window.onload = function() {
+    buildCards();
+    startAuto();
+};
+
+function saveAndCheck(index) {
+    let name = document.getElementById(`schoolNameInput-${index}`).value.trim();
+    let ip = document.getElementById(`ip-${index}`).value.trim();
+    let port = document.getElementById(`port-${index}`).value.trim();
+    
+    if (!ip || !port) {
+        alert(`กรุณากรอกข้อมูล IP และ Port ของ "${name || 'กรอบที่ ' + (index + 1)}" ให้ครบถ้วนก่อนครับ`);
+        return;
+    }
+    
+    localStorage.setItem(`s_name_${index}`, name);
+    localStorage.setItem(`s_ip_${index}`, ip);
+    localStorage.setItem(`s_port_${index}`, port);
+    
+    checkSingleNet(index);
+}
+
+function startAuto() {
+    clearInterval(refInt);
+    clearInterval(countInt);
+    checkAllNets();
+    timeLeft = 60;
+    
+    countInt = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').innerHTML = `🔄 ระบบจะตรวจสอบซ้ำอัตโนมัติในอีก <b>${timeLeft}</b> วินาที`;
+        if (timeLeft <= 0) {
+            timeLeft = 60;
+        }
+    }, 1000);
+    
+    refInt = setInterval(checkAllNets, 60000);
+}
+
+function checkAllNets() {
+    for (let i = 0; i < TOTAL_CARDS; i++) {
+        checkSingleNet(i);
+    }
+}
+
+async function checkSingleNet(index) {
+    let ip = document.getElementById(`ip-${index}`).value.trim();
+    let port = document.getElementById(`port-${index}`).value.trim();
+    let resContainer = document.getElementById(`result-container-${index}`);
+    let btn = document.getElementById(`checkBtn-${index}`);
+    
+    if (!ip || !port) {
+        resContainer.innerHTML = `<div class="result-box idle">⚪ ยังไม่ได้ระบุ IP / Port</div>`;
+        return;
+    }
+    
+    btn.disabled = true;
+    resContainer.innerHTML = `<div class="result-box loading">⏳ ตรวจสอบระบบ...</div>`;
+    
+    let ctrl = new AbortController();
+    let tId = setTimeout(() => ctrl.abort(), 3500);
+    let url = `http://${ip}:${port}`;
+    
+    try {
+        await fetch(url, { mode: 'no-cors', signal: ctrl.signal });
+        clearTimeout(tId);
+        resContainer.innerHTML = `<a href="${url}" target="_blank" class="result-box online" title="คลิกเพื่อเปิดหน้าเว็บ">🟢 ออนไลน์ (${ip}:${port})</a>`;
+    } catch (e) {
+        clearTimeout(tId);
+        resContainer.innerHTML = `<div class="result-box offline">🔴 ออฟไลน์ (${ip}:${port})</div>`;
+    } finally {
+        btn.disabled = false;
+        let time = new Date().toLocaleTimeString('th-TH');
+        document.getElementById('timestamp').innerText = `อัปเดตล่าสุดเมื่อเวลา ${time} น.`;
+    }
+}
+</script>
+
+</body>
+</html>
